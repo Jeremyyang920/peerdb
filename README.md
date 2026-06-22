@@ -89,7 +89,27 @@ You can use Postgres’ ecosystem to manage your ETL —
 
 ## Status
 
-We have expanded our connector ecosystem to support multiple source connectors beyond Postgres, including MySQL and MongoDB. You can check the status of connectors [here](https://docs.peerdb.io/sql/commands/supported-connectors)
+We have expanded our connector ecosystem to support multiple source connectors beyond Postgres, including MySQL and MongoDB. You can check the status of connectors [here](https://docs.peerdb.io/sql/commands/supported-connectors).
+
+> **Connector deprecation notice:** The Snowflake, BigQuery, ElasticSearch, Kafka (including Confluent and Redpanda variants), Azure Event Hubs, and Google Pub/Sub **destination** connectors are deprecated and no longer actively maintained. They remain fully functional in the current and all prior releases, and no code is being removed. The actively-maintained paths going forward are Postgres → ClickHouse, Postgres → ClickHouse Cloud, and Postgres → Postgres. See the [deprecated connectors migration guide](docs/DEPRECATED_CONNECTORS.md) for how to pin to a release or fork the relevant code.
+
+| Connector | Direction (source/destination) | Status |
+| --- | --- | --- |
+| Postgres | Source | **Actively maintained** |
+| MySQL | Source | **Actively maintained** |
+| MongoDB | Source | **Actively maintained** |
+| ClickHouse | Destination | **Actively maintained** |
+| ClickHouse Cloud | Destination | **Actively maintained** |
+| Postgres | Destination | **Actively maintained** |
+| S3 | Destination | **Actively maintained** |
+| Snowflake | Destination | **Deprecated** |
+| BigQuery | Destination | **Deprecated** |
+| ElasticSearch | Destination | **Deprecated** |
+| Kafka | Destination | **Deprecated** |
+| Redpanda | Destination | **Deprecated** |
+| Confluent | Destination | **Deprecated** |
+| Azure Event Hubs | Destination | **Deprecated** |
+| Google Pub/Sub | Destination | **Deprecated** |
 
 ## Local End to End testing
 

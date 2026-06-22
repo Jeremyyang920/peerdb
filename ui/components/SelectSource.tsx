@@ -1,7 +1,9 @@
 'use client';
 import { fetcher } from '@/app/utils/swr';
 import TitleCase from '@/app/utils/titlecase';
+import { Badge } from '@/lib/Badge';
 import { Button } from '@/lib/Button/Button';
+import { Label } from '@/lib/Label';
 import { ProgressCircle } from '@/lib/ProgressCircle';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,7 +12,15 @@ import useSWR from 'swr';
 import { DBTypeToImageMapping } from './PeerComponent';
 
 // label corresponds to PeerType
-function SourceLabel({ label, url }: { label: string; url?: string }) {
+function SourceLabel({
+  label,
+  url,
+  deprecated,
+}: {
+  label: string;
+  url?: string;
+  deprecated?: boolean;
+}) {
   const theme = useStyledTheme();
   const peerLogo = DBTypeToImageMapping(label);
   return (
@@ -32,7 +42,16 @@ function SourceLabel({ label, url }: { label: string; url?: string }) {
         height={20}
         objectFit='cover'
       />
-      <div>{TitleCase(label)}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div>{TitleCase(label)}</div>
+        {deprecated && (
+          <Badge variant='destructive'>
+            <Label as='label' style={{ fontSize: 13, padding: 0 }}>
+              Deprecated
+            </Label>
+          </Badge>
+        )}
+      </div>
     </Button>
   );
 }
@@ -66,7 +85,12 @@ export default function SelectSource() {
     paddingRight: '10px',
   } as const;
   const { data: dbTypes, isLoading } = useSWR<
-    [string, ...Array<string | { label: string; url: string }>][]
+    [
+      string,
+      ...Array<
+        string | { label: string; url?: string; deprecated?: boolean }
+      >,
+    ][]
   >('/api/peer-types', fetcher);
   if (!dbTypes || isLoading) {
     return <ProgressCircle variant={'determinate_progress_circle'} />;
@@ -79,7 +103,12 @@ export default function SelectSource() {
         typeof item === 'string' ? (
           <SourceLabel key={i} label={item} />
         ) : (
-          <SourceLabel key={i} label={item.label} url={item.url} />
+          <SourceLabel
+            key={i}
+            label={item.label}
+            url={item.url}
+            deprecated={item.deprecated}
+          />
         )
       )}
     </div>

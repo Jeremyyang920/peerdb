@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: PeerDB documentation
+    url: https://docs.peerdb.io
+    about: Browse setup guides, connector references, and troubleshooting docs.
+  - name: Deprecated connectors
+    url: https://github.com/PeerDB-io/peerdb/blob/main/docs/DEPRECATED_CONNECTORS.md
+    about: Snowflake, BigQuery, ElasticSearch, Kafka, Redpanda, Confluent, Azure Event Hubs, and Google Pub/Sub destinations are deprecated.
