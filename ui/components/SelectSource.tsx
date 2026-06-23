@@ -16,13 +16,19 @@ function SourceLabel({
   label,
   url,
   deprecated,
+  deprecatedRole,
 }: {
   label: string;
   url?: string;
   deprecated?: boolean;
+  deprecatedRole?: 'destination';
 }) {
   const theme = useStyledTheme();
   const peerLogo = DBTypeToImageMapping(label);
+  const deprecatedText =
+    deprecatedRole === 'destination'
+      ? 'Deprecated as destination'
+      : 'Deprecated';
   return (
     <Button
       as={Link}
@@ -47,7 +53,7 @@ function SourceLabel({
         {deprecated && (
           <Badge variant='destructive'>
             <Label as='label' style={{ fontSize: 13, padding: 0 }}>
-              Deprecated
+              {deprecatedText}
             </Label>
           </Badge>
         )}
@@ -88,7 +94,13 @@ export default function SelectSource() {
     [
       string,
       ...Array<
-        string | { label: string; url?: string; deprecated?: boolean }
+        | string
+        | {
+            label: string;
+            url?: string;
+            deprecated?: boolean;
+            deprecatedRole?: 'destination';
+          }
       >,
     ][]
   >('/api/peer-types', fetcher);
@@ -108,6 +120,7 @@ export default function SelectSource() {
             label={item.label}
             url={item.url}
             deprecated={item.deprecated}
+            deprecatedRole={item.deprecatedRole}
           />
         )
       )}

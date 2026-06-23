@@ -2,14 +2,22 @@ import { GetPeerDBClickHouseMode } from '@/peerdb-env/allowed_targets';
 import { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 
-type PeerTypeItem = { label: string; url?: string; deprecated?: boolean };
+type PeerTypeItem = {
+  label: string;
+  url?: string;
+  deprecated?: boolean;
+  // When deprecation only applies to the connector's use as a destination
+  // (e.g. BigQuery is still a supported source), the badge reflects that.
+  deprecatedRole?: 'destination';
+};
 type PeerTypeCategory = [string, ...Array<string | PeerTypeItem>];
 
 export async function GET(request: NextRequest) {
   const allWarehouseTypes: PeerTypeCategory = [
     'Warehouses',
     { label: 'SNOWFLAKE', deprecated: true },
-    { label: 'BIGQUERY', deprecated: true },
+    // BigQuery remains a supported source; only its destination role is deprecated.
+    { label: 'BIGQUERY', deprecated: true, deprecatedRole: 'destination' },
     'S3',
     'CLICKHOUSE',
     { label: 'ELASTICSEARCH', deprecated: true },

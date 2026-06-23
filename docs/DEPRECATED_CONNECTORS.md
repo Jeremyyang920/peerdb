@@ -3,13 +3,15 @@
 The following **destination** connectors are deprecated and no longer actively maintained:
 
 - Snowflake
-- BigQuery
+- BigQuery (destination role only — see below)
 - ElasticSearch
 - Kafka (including Confluent and Redpanda variants)
 - Azure Event Hubs
 - Google Pub/Sub
 
 These connectors remain **fully functional** in the current and all prior releases. No code is being removed, and they will **not** be automatically removed from existing deployments. The actively-maintained paths going forward are Postgres → ClickHouse, Postgres → ClickHouse Cloud, and Postgres → Postgres. Sources (Postgres, MySQL, MongoDB) and the S3 destination are not affected by this deprecation.
+
+> **BigQuery is deprecated only as a destination.** BigQuery remains a **supported source** for QRep mirrors and is not deprecated in that role. The migration guidance below applies to BigQuery's use as a *destination*.
 
 If you rely on a deprecated destination, you have two supported options to keep using it: pin to a release that includes it, or fork the relevant connector code.
 
@@ -39,7 +41,9 @@ The sections below list the exact code paths to carry for each deprecated connec
 - `ui/app/peers/create/[peerType]/helpers/sf.ts`
 - `flow/e2e/snowflake*.go`
 
-### BigQuery
+### BigQuery (destination only)
+
+> Deprecated only as a **destination**. BigQuery is still a supported **source**, so keep this code if you use BigQuery as a source.
 
 - `flow/connectors/bigquery/`
 - `ui/components/PeerForms/BigqueryConfig.tsx`

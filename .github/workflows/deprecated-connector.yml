@@ -96,6 +96,8 @@ jobs:
               'These destinations are **no longer actively maintained**, but remain functional. ' +
                 'We are unlikely to prioritize new work here.',
               '',
+              '> Note: BigQuery is deprecated **only as a destination** — it remains a supported source.',
+              '',
               'If you depend on one of these connectors, we recommend:',
               '',
               '- **Pin** to a known-good PeerDB version so behavior stays stable.',
