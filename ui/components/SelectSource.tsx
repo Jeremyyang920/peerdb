@@ -25,10 +25,10 @@ function SourceLabel({
 }) {
   const theme = useStyledTheme();
   const peerLogo = DBTypeToImageMapping(label);
+  // Uniform "Deprecated" badge; an asterisk flags connectors deprecated only
+  // as a destination (explained by the footnote below the category).
   const deprecatedText =
-    deprecatedRole === 'destination'
-      ? 'Deprecated as destination'
-      : 'Deprecated';
+    deprecatedRole === 'destination' ? 'Deprecated*' : 'Deprecated';
   return (
     <Button
       as={Link}
@@ -90,6 +90,12 @@ export default function SelectSource() {
     paddingLeft: '10px',
     paddingRight: '10px',
   } as const;
+
+  const footnoteStyle = {
+    flexBasis: '100%',
+    fontSize: '12px',
+    color: theme.colors.base.text.lowContrast,
+  } as const;
   const { data: dbTypes, isLoading } = useSWR<
     [
       string,
@@ -108,22 +114,31 @@ export default function SelectSource() {
     return <ProgressCircle variant={'determinate_progress_circle'} />;
   }
 
-  return dbTypes.map(([category, ...items]) => (
-    <div key={category} style={gridContainerStyle}>
-      <div style={gridHeaderStyle}>{category}</div>
-      {items.map((item, i) =>
-        typeof item === 'string' ? (
-          <SourceLabel key={i} label={item} />
-        ) : (
-          <SourceLabel
-            key={i}
-            label={item.label}
-            url={item.url}
-            deprecated={item.deprecated}
-            deprecatedRole={item.deprecatedRole}
-          />
-        )
-      )}
-    </div>
-  ));
+  return dbTypes.map(([category, ...items]) => {
+    const hasDestinationDeprecation = items.some(
+      (item) =>
+        typeof item !== 'string' && item.deprecatedRole === 'destination'
+    );
+    return (
+      <div key={category} style={gridContainerStyle}>
+        <div style={gridHeaderStyle}>{category}</div>
+        {items.map((item, i) =>
+          typeof item === 'string' ? (
+            <SourceLabel key={i} label={item} />
+          ) : (
+            <SourceLabel
+              key={i}
+              label={item.label}
+              url={item.url}
+              deprecated={item.deprecated}
+              deprecatedRole={item.deprecatedRole}
+            />
+          )
+        )}
+        {hasDestinationDeprecation && (
+          <div style={footnoteStyle}>* Deprecated as a destination only.</div>
+        )}
+      </div>
+    );
+  });
 }

@@ -103,7 +103,7 @@ jobs:
               '- **Pin** to a known-good PeerDB version so behavior stays stable.',
               '- **Fork** the repository if you need to carry your own changes.',
               '',
-              'See the [deprecated connectors documentation](https://github.com/PeerDB-io/peerdb/blob/main/docs/DEPRECATED_CONNECTORS.md) for details and migration guidance.',
+              'See the [deprecated connectors documentation](https://github.com/PeerDB-io/peerdb/blob/main/docs/deprecated-connectors.md) for details and migration guidance.',
             ].join('\n');
 
             await github.rest.issues.createComment({
