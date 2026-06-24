@@ -62,3 +62,5 @@ func (c *BigQueryConnector) ValidateMirrorSource(ctx context.Context, cfg *proto
 
 	return nil
 }
+
+// test: bigquery SOURCE change — should NOT be labeled deprecated
