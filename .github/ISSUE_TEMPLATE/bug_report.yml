@@ -45,7 +45,7 @@ body:
 
         The following destination connectors are **deprecated**: **Snowflake**, **BigQuery**, **ElasticSearch**, **Kafka**, **Redpanda**, **Confluent**, **Azure Event Hubs**, **Google Pub/Sub**, and **S3**.
 
-        These destinations are no longer actively maintained, but remain functional. Bugs affecting only these destinations are unlikely to be prioritized. Note: BigQuery is deprecated **only as a destination** — it remains a supported source. See the [deprecated connectors documentation](https://github.com/PeerDB-io/peerdb/blob/main/docs/deprecated-connectors.md) ([../../docs/deprecated-connectors.md](../../docs/deprecated-connectors.md)) for details and migration guidance.
+        These destinations are no longer actively maintained, but remain functional. Bugs affecting only these destinations are unlikely to be prioritized. Note: BigQuery is deprecated **only as a destination** — it remains a supported source. See the [deprecated connectors documentation](https://github.com/PeerDB-io/peerdb/blob/main/docs/deprecated-connectors.md) for details and migration guidance.
 
   - type: dropdown
     id: destination_connector
