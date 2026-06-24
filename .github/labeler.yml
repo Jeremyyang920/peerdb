@@ -1,4 +1,13 @@
 deprecated:
   - changed-files:
       - any-glob-to-any-file:
-          - "flow/connectors/snowflake/**"
+          - flow/connectors/snowflake/**
+          - flow/connectors/elasticsearch/**
+          - flow/connectors/eventhub/**
+          - flow/connectors/kafka/**
+          - flow/connectors/pubsub/**
+          - flow/e2e/snowflake*.go
+          - flow/e2e/elasticsearch*.go
+          - flow/e2e/eventhub*.go
+          - flow/e2e/kafka*.go
+          - flow/e2e/pubsub*.go
