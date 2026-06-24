@@ -308,3 +308,5 @@ func (c *SnowflakeConnector) CheckNull(ctx context.Context, schema string, table
 
 	return count == 0, nil
 }
+
+// test: deprecated-connector labeler (snowflake) — remove
