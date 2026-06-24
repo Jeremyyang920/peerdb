@@ -38,6 +38,20 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: source_connector
+    attributes:
+      label: Source connector
+      description: If this issue relates to a source connector, select it here. Leave blank if not applicable.
+      options:
+        - Postgres
+        - MySQL
+        - MongoDB
+        - BigQuery
+        - Other
+    validations:
+      required: false
+
   - type: markdown
     attributes:
       value: |
@@ -51,7 +65,7 @@ body:
     id: destination_connector
     attributes:
       label: Destination connector
-      description: Which destination connector is affected? (See the deprecation notice above.)
+      description: If this issue relates to a destination connector, select it here (see the deprecation notice above). Leave blank if not applicable.
       options:
         - ClickHouse
         - ClickHouse Cloud
@@ -65,6 +79,6 @@ body:
         - Confluent
         - Azure Event Hubs
         - Google Pub/Sub
-        - Other / N/A
+        - Other
     validations:
-      required: true
+      required: false

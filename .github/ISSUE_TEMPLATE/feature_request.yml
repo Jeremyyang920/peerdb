@@ -33,6 +33,20 @@ body:
     validations:
       required: false
 
+  - type: dropdown
+    id: source_connector
+    attributes:
+      label: Source connector
+      description: If this request relates to a source connector, select it here. Leave blank if not applicable.
+      options:
+        - Postgres
+        - MySQL
+        - MongoDB
+        - BigQuery
+        - Other
+    validations:
+      required: false
+
   - type: markdown
     attributes:
       value: |
@@ -44,9 +58,8 @@ body:
     id: destination_connector
     attributes:
       label: Destination connector
-      description: Which destination connector does this relate to? (See the deprecation notice above.)
+      description: If this request relates to a destination connector, select it here (see the deprecation notice above). Leave blank if not applicable.
       options:
-        - Not applicable
         - ClickHouse
         - ClickHouse Cloud
         - Postgres
@@ -61,4 +74,4 @@ body:
         - Google Pub/Sub
         - Other
     validations:
-      required: true
+      required: false
