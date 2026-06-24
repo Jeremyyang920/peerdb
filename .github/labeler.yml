@@ -1,6 +1,7 @@
 deprecated:
   - changed-files:
       - any-glob-to-any-file:
+          # Destination-only connectors (entire dirs are deprecation-related)
           - flow/connectors/snowflake/**
           - flow/connectors/elasticsearch/**
           - flow/connectors/eventhub/**
@@ -11,3 +12,24 @@ deprecated:
           - flow/e2e/eventhub*.go
           - flow/e2e/kafka*.go
           - flow/e2e/pubsub*.go
+          - ui/components/PeerForms/SnowflakeForm.tsx
+          - ui/components/PeerForms/ElasticsearchConfigForm.tsx
+          - ui/components/PeerForms/KafkaConfig.tsx
+          - ui/components/PeerForms/PubSubConfig.tsx
+          - ui/components/PeerForms/Eventhubs/**
+          - ui/app/peers/create/[[]peerType]/helpers/sf.ts
+          - ui/app/peers/create/[[]peerType]/helpers/es.ts
+          - ui/app/peers/create/[[]peerType]/helpers/eh.ts
+          - ui/app/peers/create/[[]peerType]/helpers/ka.ts
+          - ui/app/peers/create/[[]peerType]/helpers/ps.ts
+          # BigQuery is dual-role: only its DESTINATION is deprecated, and its
+          # source code lives in the same dir. List destination-specific files
+          # explicitly so BigQuery *source* changes are never auto-labeled.
+          - flow/connectors/bigquery/bigquery.go
+          - flow/connectors/bigquery/merge_stmt_generator.go
+          - flow/connectors/bigquery/qrep_avro_sync.go
+          - flow/connectors/bigquery/clustering.go
+          - flow/e2e/bigquery_test.go
+          - flow/e2e/bigquery_qrep_test.go
+          - ui/components/PeerForms/BigqueryConfig.tsx
+          - ui/app/peers/create/[[]peerType]/helpers/bq.ts
