@@ -32,7 +32,13 @@ jobs:
           sync-labels: false
 
   # Post a one-time notice when the `deprecated` label is present on an issue or PR.
+  # Depends on `label` so that on pull_request_target it runs *after* the labeler
+  # has applied the label (the labeler's GITHUB_TOKEN write does not itself emit a
+  # `labeled` event). `if: always()` keeps it running for issues/PR `labeled`
+  # events, where the `label` job is skipped.
   notice:
+    needs: label
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       issues: write
