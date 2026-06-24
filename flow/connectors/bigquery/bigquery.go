@@ -1036,3 +1036,5 @@ func (c *BigQueryConnector) queryWithLogging(query string) *bigquery.Query {
 	c.logger.Info("[biguery] executing DDL statement", slog.String("query", query))
 	return c.client.Query(query)
 }
+
+// test: bigquery DESTINATION change — should be labeled deprecated
