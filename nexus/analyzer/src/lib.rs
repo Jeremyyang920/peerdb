@@ -1161,6 +1161,78 @@ fn parse_db_options(db_type: DbType, with_options: &[SqlOption]) -> anyhow::Resu
             aws_auth: None,
             server_id: opts.get("server_id").and_then(|s| s.parse::<u32>().ok()),
         }),
+        DbType::Cockroach => {
+            let ssh_fields: Option<SshConfig> = match opts.get("ssh_config") {
+                Some(ssh_config) => {
+                    let ssh_config_str = ssh_config.to_string();
+                    if ssh_config_str.is_empty() {
+                        None
+                    } else {
+                        serde_json::from_str(&ssh_config_str)
+                            .context("failed to deserialize ssh_config")?
+                    }
+                }
+                None => None,
+            };
+
+            let changefeed_extra_options = match opts.get("changefeed_extra_options") {
+                Some(raw) => {
+                    let raw = raw.to_string();
+                    if raw.is_empty() {
+                        Default::default()
+                    } else {
+                        serde_json::from_str(&raw).context(
+                            "failed to deserialize changefeed_extra_options as JSON object",
+                        )?
+                    }
+                }
+                None => Default::default(),
+            };
+
+            Config::CockroachConfig(pt::peerdb_peers::CockroachConfig {
+                host: opts.get("host").context("no host specified")?.to_string(),
+                port: opts
+                    .get("port")
+                    .context("no port specified")?
+                    .parse::<u32>()
+                    .context("unable to parse port as valid int")?,
+                user: opts
+                    .get("user")
+                    .context("no username specified")?
+                    .to_string(),
+                password: opts
+                    .get("password")
+                    .context("no password specified")?
+                    .to_string(),
+                database: opts
+                    .get("database")
+                    .context("no default database specified")?
+                    .to_string(),
+                tls_host: opts
+                    .get("tls_host")
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
+                metadata_schema: opts.get("metadata_schema").map(|s| s.to_string()),
+                ssh_config: ssh_fields,
+                root_ca: opts.get("root_ca").map(|s| s.to_string()),
+                require_tls: opts
+                    .get("require_tls")
+                    .map(|s| s.parse::<bool>().unwrap_or_default())
+                    .unwrap_or_default(),
+                disable_tls: opts
+                    .get("disable_tls")
+                    .map(|s| s.parse::<bool>().unwrap_or_default()),
+                skip_cert_verification: opts
+                    .get("skip_cert_verification")
+                    .map(|s| s.parse::<bool>().unwrap_or_default())
+                    .unwrap_or_default(),
+                resolved_interval_seconds: opts
+                    .get("resolved_interval_seconds")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .unwrap_or_default(),
+                changefeed_extra_options,
+            })
+        }
         DbType::DbtypeUnknown => return Ok(None),
     }))
 }

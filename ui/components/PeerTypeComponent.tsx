@@ -24,6 +24,8 @@ export function DBTypeToGoodText(ptype?: DBType) {
       return 'MongoDB';
     case DBType.CLICKHOUSE:
       return 'Clickhouse';
+    case DBType.COCKROACH:
+      return 'CockroachDB';
     case DBType.KAFKA:
       return 'Kafka';
     case DBType.PUBSUB:

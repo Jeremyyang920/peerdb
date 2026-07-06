@@ -135,6 +135,68 @@ export const pgSchema = z.object({
     .optional(),
   sshConfig: sshSchema,
 });
+
+export const crdbSchema = z.object({
+  host: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? 'Host is required'
+          : 'Host must be a string',
+    })
+    .min(1, { message: 'Host cannot be empty' })
+    .max(255, 'Host must be less than 256 characters'),
+  port: z
+    .int({
+      error: (issue) =>
+        issue.input === undefined
+          ? 'Port is required'
+          : 'Port must be a number',
+    })
+    .min(1, 'Port must be a positive integer')
+    .max(65535, 'Port must be below 65536'),
+  user: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? 'User is required'
+          : 'User must be a string',
+    })
+    .min(1, 'User must be non-empty')
+    .max(64, 'User must be less than 65 characters'),
+  password: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? 'Password is required'
+          : 'Password must be a string',
+    })
+    .max(100, 'Password must be less than 101 characters'),
+  database: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? 'Database is required'
+          : 'Database must be a string',
+    })
+    .min(1, { message: 'Database cannot be empty' })
+    .max(100, 'Database must be less than 101 characters'),
+  requireTls: z.boolean().optional(),
+  disableTls: z.boolean().optional(),
+  skipCertVerification: z.boolean().optional(),
+  rootCa: z
+    .string({
+      error: () => 'Root CA must be a string',
+    })
+    .optional()
+    .transform((e) => (e === '' ? undefined : e)),
+  tlsHost: z.string().optional(),
+  metadataSchema: z.string().optional(),
+  resolvedIntervalSeconds: z.number().optional(),
+  changefeedExtraOptions: z.record(z.string(), z.string()).optional(),
+  sshConfig: sshSchema,
+});
+
 export const mySchema = z.object({
   host: z
     .string({
