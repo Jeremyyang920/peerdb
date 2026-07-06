@@ -1,5 +1,7 @@
 # CockroachDB Source Connector for PeerDB — Strategy Draft
 
+> **Status (2026-07-06):** Phases 0–2 are implemented on `feat/cockroachdb-sinkless-source` (sinkless-changefeed design, chosen over the webhook sink discussed below) and verified against live CockroachDB v26.1.6, including a full CRDB→ClickHouse e2e suite through the real Temporal workflows and connector-level chaos tests. Remaining: Phase 3 hardening (schema deltas, add/remove tables, lag observability) and CI verification of the nexus (Rust) and UI builds.
+
 ## Context
 
 PR [#3861](https://github.com/PeerDB-io/peerdb/pull/3861) ("Add native CockroachDB connector support", by viragtripathi, opened 2026-01-21, +936/−2) claims "full CockroachDB integration as a source peer" but actually only implements **peer registration**:
