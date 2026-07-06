@@ -2,10 +2,13 @@
 
 This directory holds the CI-wiring plan for the CockroachDB source connector.
 
-> **Status:** dev/test infrastructure only. There are **no Go tests here yet** and
-> **no CI job yet**, on purpose — see [Why no Go tests / CI job yet](#why-no-go-tests--ci-job-yet).
-> The connector itself (proto, `flow/connectors/cockroach/`, decoders) is being built
-> in parallel work packages (Phase 0 / WP-A..D). Wire CI once those land.
+> **Status (updated):** the connector, e2e suite, and CI job now exist. The e2e
+> tests live in the `e2e` package as `flow/e2e/cockroach.go` (source helper) and
+> `flow/e2e/cockroach_test.go` (`TestGenericCH_Cockroach` + `TestCockroachClickhouseSuite`);
+> the CI job runs a CockroachDB service in `.github/workflows/flow.yml`. The
+> "Why no Go tests / CI job yet" section below is retained as historical rationale.
+> Tests run green against **v26.1.6** (the currently pinned version); the captured
+> changefeed samples further down were recorded on v25.4.12 — see the note there.
 
 The v1 connector uses **sinkless (core) changefeeds over pgwire** — a blocking
 `CREATE CHANGEFEED FOR TABLE ... WITH resolved=...` (no `INTO` sink) streamed over a
@@ -18,7 +21,7 @@ no HTTPS ingress, no webhook receiver, no extra buffer.
 | Piece | Location |
 |-------|----------|
 | Single-node CRDB service | `cockroach` service in `ancillary-docker-compose.yml` |
-| Image version pin | `COCKROACH_VERSION` (default `v25.4.12`) → `COCKROACH_IMAGE` in `generate-test-environment.sh` |
+| Image version pin | `COCKROACH_VERSION` (default `v26.1.6`) → `COCKROACH_IMAGE` in `generate-test-environment.sh` |
 | Connection env vars | `CI_COCKROACH_HOST/PORT/USER/DATABASE` in `.env.example` |
 | Rangefeed provisioning | `local_provision_scripts/cockroach.sh` |
 | Tilt resources | `dc_resource('cockroach')` + `provision-cockroach` in `Tiltfile` (label `Ancillary-DB`, `auto_init=False`) |
@@ -105,7 +108,7 @@ cluster setting via container args, enable rangefeed after startup (mirrors the 
       - name: CockroachDB
         run: |
           docker run -d --rm --name cockroach -p 26257:26257 \
-            cockroachdb/cockroach:v25.4.12 start-single-node --insecure
+            cockroachdb/cockroach:v26.1.6 start-single-node --insecure
           until docker exec cockroach cockroach sql --insecure -e "SELECT 1" &>/dev/null; do
             echo "waiting for CockroachDB..."; sleep 2
           done
@@ -167,7 +170,12 @@ INSERT INTO e2e_test.orders (id, sku, price) VALUES (1, 'ABC', 19.99);
 The connector captures `cluster_logical_timestamp()` as t0 before snapshot, reads the
 snapshot `AS OF SYSTEM TIME t0`, then starts the sinkless changefeed at `cursor=t0`.
 
-## Observed changefeed message shapes (verified on v25.4.12)
+## Observed changefeed message shapes (captured on v25.4.12)
+
+> **Version note:** the samples below are v25.4.12-era ground truth. The suite now
+> runs against **v26.1.6**; the full e2e round-trip (wrapped envelope, `diff`,
+> `updated`, `mvcc_timestamp`, resolved-HLC checkpoints, DECIMAL-as-JSON-number)
+> was re-verified green on v26.1.6 with no observed wire-format drift.
 
 Captured from a real sinkless changefeed on the compose service (insecure single node).
 DML: `INSERT (1,'alice',10.50)` → `UPDATE amount=99.99` → `DELETE`, then a second table
