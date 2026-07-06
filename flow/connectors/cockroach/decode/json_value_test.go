@@ -110,6 +110,14 @@ func TestJSONToQValueBytes(t *testing.T) {
 	if string(qv2.(types.QValueBytes).Val) != "hello" {
 		t.Fatalf("base64 bytes = %q", qv2.(types.QValueBytes).Val)
 	}
+	// Verbatim wire form observed from a live CRDB v25.4 sinkless changefeed
+	// (wrapped envelope): BYTES is emitted as a `\x`-prefixed hex string, never
+	// base64. This exact string is what the `value` column carried for a row with
+	// bytes {0x00,0x01,0xff,'h','e','l','l','o'}.
+	qv3 := mustDecode(t, types.QValueKindBytes, -1, `"\\x0001ff68656c6c6f"`)
+	if !bytes.Equal(qv3.(types.QValueBytes).Val, []byte{0x00, 0x01, 0xff, 'h', 'e', 'l', 'l', 'o'}) {
+		t.Fatalf("crdb changefeed bytes = %x", qv3.(types.QValueBytes).Val)
+	}
 }
 
 func TestJSONToQValueTemporal(t *testing.T) {
@@ -182,6 +190,14 @@ func TestJSONToQValueInterval(t *testing.T) {
 			name: "postgres verbose",
 			in:   `"1 year 2 mons 3 days 04:05:06"`,
 			want: datatypes.PeerDBInterval{Years: 1, Months: 2, Days: 3, Hours: 4, Minutes: 5, Seconds: 6, Valid: true},
+		},
+		{
+			// Verbatim wire form observed from a live CRDB v25.4 sinkless changefeed:
+			// INTERVAL is emitted in the postgres-verbose form (with fractional
+			// seconds), never ISO-8601.
+			name: "cockroach verbose fractional",
+			in:   `"1 year 2 mons 3 days 04:05:06.789"`,
+			want: datatypes.PeerDBInterval{Years: 1, Months: 2, Days: 3, Hours: 4, Minutes: 5, Seconds: 6.789, Valid: true},
 		},
 		{
 			name: "postgres clock only",
