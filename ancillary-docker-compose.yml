@@ -221,6 +221,26 @@ services:
       timeout: 10s
       retries: 5
 
+  cockroach:
+    container_name: peerdb-cockroach
+    image: ${COCKROACH_IMAGE}
+    # Single-node insecure cluster is enough for sinkless changefeeds; the
+    # kv.rangefeed.enabled cluster setting they require is applied afterwards by
+    # local_provision_scripts/cockroach.sh (see provision-cockroach in the Tiltfile).
+    command: ["start-single-node", "--insecure"]
+    restart: unless-stopped
+    volumes:
+      - cockroach_data:/cockroach/cockroach-data
+    ports:
+      - "${CI_COCKROACH_PORT}:26257"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "-e", "SELECT 1"]
+      interval: 2s
+      timeout: 10s
+      retries: 5
+
   dozzle:
     container_name: dozzle-compose-monitor
     image: amir20/dozzle:latest
@@ -290,6 +310,7 @@ volumes:
   mysql_gtid_data:
   mysql_pos_data:
   mariadb_data:
+  cockroach_data:
 
 networks:
   default:

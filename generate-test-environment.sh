@@ -29,6 +29,12 @@ if [ -z "$CLICKHOUSE_VERSION" ]; then
     CLICKHOUSE_VERSION="latest"
 fi;
 
+# CockroachDB is not part of the flow.yml matrix yet (no CI e2e suite), so pin a
+# recent stable v25.x here rather than deriving it from the matrix.
+if [ -z "$COCKROACH_VERSION" ]; then
+    COCKROACH_VERSION="v25.4.12"
+fi;
+
 if [ -z "$POSTGRES_VERSION" ] || [ -z "$MYSQL_VERSION" ] || [ -z "$MONGODB_VERSION" ] || [ -z "$CLICKHOUSE_VERSION" ]; then
     echo "Missing version information for one of the databases."
     echo "Please check the flow.yml matrix and ensure it has the correct versions,"
@@ -49,3 +55,4 @@ echo MONGODB_IMAGE="mongo:${MONGODB_VERSION}" >> "$ENVIRONMENT_FILE"
 echo CLICKHOUSE_IMAGE="clickhouse/clickhouse-server:${CLICKHOUSE_VERSION}" >> "$ENVIRONMENT_FILE"
 echo POSTGRES_IMAGE="imresamu/postgis:${POSTGRES_VERSION}-3.5-alpine" >> "$ENVIRONMENT_FILE"
 echo MYSQL_IMAGE="mysql:${MYSQL_VERSION}" >> "$ENVIRONMENT_FILE"
+echo COCKROACH_IMAGE="cockroachdb/cockroach:${COCKROACH_VERSION}" >> "$ENVIRONMENT_FILE"

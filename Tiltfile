@@ -137,6 +137,13 @@ local_resource(
 )
 
 local_resource(
+    'provision-cockroach',
+    cmd='./local_provision_scripts/cockroach.sh',
+    labels=['Ancillary-DB-Provisioning'],
+    resource_deps=['cockroach']
+)
+
+local_resource(
     'provision-postgres',
     cmd='./local_provision_scripts/postgres.sh',
     labels=['Ancillary-DB-Provisioning'],
@@ -244,6 +251,10 @@ dc_resource('mysql-pos', labels=['Ancillary-DB'], links=[
 
 dc_resource('mariadb', labels=['Ancillary-DB'], links=[
     link('http://localhost:' + resolve_ancillary_env('CI_MARIADB_PORT', '3308'), 'MariaDB'),
+], auto_init=False)
+
+dc_resource('cockroach', labels=['Ancillary-DB'], links=[
+    link('http://localhost:' + resolve_ancillary_env('CI_COCKROACH_PORT', '26257'), 'CockroachDB SQL'),
 ], auto_init=False)
 
 dc_resource('postgres', labels=['Ancillary-DB'], links=[
