@@ -11,6 +11,7 @@ import (
 
 	connbigquery "github.com/PeerDB-io/peerdb/flow/connectors/bigquery"
 	connclickhouse "github.com/PeerDB-io/peerdb/flow/connectors/clickhouse"
+	conncockroach "github.com/PeerDB-io/peerdb/flow/connectors/cockroach"
 	connelasticsearch "github.com/PeerDB-io/peerdb/flow/connectors/elasticsearch"
 	conneventhub "github.com/PeerDB-io/peerdb/flow/connectors/eventhub"
 	connkafka "github.com/PeerDB-io/peerdb/flow/connectors/kafka"
@@ -531,6 +532,12 @@ func BuildPeerConfig(ctx context.Context, encKeyID string, encPeerOptions []byte
 			return nil, fmt.Errorf("failed to unmarshal Elasticsearch config: %w", err)
 		}
 		peer.Config = &protos.Peer_ElasticsearchConfig{ElasticsearchConfig: &config}
+	case protos.DBType_COCKROACH:
+		var config protos.CockroachConfig
+		if err := proto.Unmarshal(peerOptions, &config); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal CockroachDB config: %w", err)
+		}
+		peer.Config = &protos.Peer_CockroachConfig{CockroachConfig: &config}
 	default:
 		return nil, fmt.Errorf("unsupported peer type: %s", dbType)
 	}
@@ -565,6 +572,8 @@ func getConnector(ctx context.Context, env map[string]string, config *protos.Pee
 		return connmongo.NewMongoConnector(ctx, inner.MongoConfig)
 	case *protos.Peer_MysqlConfig:
 		return connmysql.NewMySqlConnector(ctx, inner.MysqlConfig)
+	case *protos.Peer_CockroachConfig:
+		return conncockroach.NewCockroachConnector(ctx, inner.CockroachConfig)
 	case *protos.Peer_ClickhouseConfig:
 		return connclickhouse.NewClickHouseConnector(ctx, env, inner.ClickhouseConfig)
 	case *protos.Peer_KafkaConfig:
@@ -675,6 +684,7 @@ var (
 	_ CDCPullConnector = &connpostgres.PostgresConnector{}
 	_ CDCPullConnector = &connmysql.MySqlConnector{}
 	_ CDCPullConnector = &connmongo.MongoConnector{}
+	_ CDCPullConnector = &conncockroach.CockroachConnector{}
 
 	_ CDCPullPgConnector = &connpostgres.PostgresConnector{}
 
@@ -704,11 +714,13 @@ var (
 	_ GetTableSchemaConnector = &connbigquery.BigQueryConnector{}
 	_ GetTableSchemaConnector = &connsnowflake.SnowflakeConnector{}
 	_ GetTableSchemaConnector = &connclickhouse.ClickHouseConnector{}
+	_ GetTableSchemaConnector = &conncockroach.CockroachConnector{}
 
 	_ GetSchemaConnector = &connpostgres.PostgresConnector{}
 	_ GetSchemaConnector = &connmysql.MySqlConnector{}
 	_ GetSchemaConnector = &connmongo.MongoConnector{}
 	_ GetSchemaConnector = &connbigquery.BigQueryConnector{}
+	_ GetSchemaConnector = &conncockroach.CockroachConnector{}
 
 	_ NormalizedTablesConnector = &connpostgres.PostgresConnector{}
 	_ NormalizedTablesConnector = &connbigquery.BigQueryConnector{}
@@ -721,6 +733,7 @@ var (
 	_ QRepPullConnector = &connpostgres.PostgresConnector{}
 	_ QRepPullConnector = &connmysql.MySqlConnector{}
 	_ QRepPullConnector = &connmongo.MongoConnector{}
+	_ QRepPullConnector = &conncockroach.CockroachConnector{}
 
 	_ QRepSyncConnector = &connpostgres.PostgresConnector{}
 	_ QRepSyncConnector = &connbigquery.BigQueryConnector{}
@@ -756,11 +769,13 @@ var (
 	_ ValidationConnector = &conns3.S3Connector{}
 	_ ValidationConnector = &connmysql.MySqlConnector{}
 	_ ValidationConnector = &connmongo.MongoConnector{}
+	_ ValidationConnector = &conncockroach.CockroachConnector{}
 
 	_ MirrorSourceValidationConnector = &connpostgres.PostgresConnector{}
 	_ MirrorSourceValidationConnector = &connmysql.MySqlConnector{}
 	_ MirrorSourceValidationConnector = &connmongo.MongoConnector{}
 	_ MirrorSourceValidationConnector = &connbigquery.BigQueryConnector{}
+	_ MirrorSourceValidationConnector = &conncockroach.CockroachConnector{}
 
 	_ MirrorDestinationValidationConnector = &connclickhouse.ClickHouseConnector{}
 	_ MirrorDestinationValidationConnector = &connpostgres.PostgresConnector{}
@@ -772,6 +787,7 @@ var (
 	_ GetVersionConnector = &connpostgres.PostgresConnector{}
 	_ GetVersionConnector = &connmysql.MySqlConnector{}
 	_ GetVersionConnector = &connmongo.MongoConnector{}
+	_ GetVersionConnector = &conncockroach.CockroachConnector{}
 
 	_ GetLogRetentionConnector = &connmysql.MySqlConnector{}
 	_ GetLogRetentionConnector = &connmongo.MongoConnector{}

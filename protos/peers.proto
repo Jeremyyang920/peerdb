@@ -139,6 +139,29 @@ message PostgresConfig {
   optional ClientTlsConfig client_tls = 15;
 }
 
+// CockroachDB source connector (v1: sinkless changefeed pulled over pgwire).
+// Connection fields mirror PostgresConfig since CockroachDB speaks the pgwire protocol.
+message CockroachConfig {
+  string host = 1;
+  uint32 port = 2;
+  string user = 3;
+  string password = 4 [(peerdb_redacted) = true];
+  string database = 5;
+  string tls_host = 6;
+  // defaults to _peerdb_internal
+  optional string metadata_schema = 7;
+  optional SSHConfig ssh_config = 8;
+  optional string root_ca = 9 [(peerdb_redacted) = true];
+  bool require_tls = 10;
+  optional bool disable_tls = 11;
+  bool skip_cert_verification = 12;
+  // Interval for changefeed `resolved` timestamps; controls checkpoint cadence.
+  // Defaults to 10 seconds when unset (handled in code).
+  uint32 resolved_interval_seconds = 13;
+  // Escape hatch for additional `CREATE CHANGEFEED ... WITH` options.
+  map<string, string> changefeed_extra_options = 14;
+}
+
 message EventHubConfig {
   string namespace = 1;
   string resource_group = 2;
@@ -285,6 +308,7 @@ enum DBType {
   PUBSUB = 10;
   EVENTHUBS = 11;
   ELASTICSEARCH = 12;
+  COCKROACH = 13;
   DBTYPE_UNKNOWN = -1;
 }
 
@@ -322,5 +346,6 @@ message Peer {
     PubSubConfig pubsub_config = 13;
     ElasticsearchConfig elasticsearch_config = 14;
     MySqlConfig mysql_config = 15;
+    CockroachConfig cockroach_config = 16;
   }
 }
