@@ -376,6 +376,10 @@ e2e_test('mariadb', 'TestGenericCH_MariaDB', ['provision-mariadb'], vars_overrid
 # MongoDB to ClickHouse test suite
 e2e_test('mongodb', 'TestMongoClickhouseSuite', ['provision-mongodb'])
 
+# CockroachDB to ClickHouse test suites
+e2e_test('cockroach-generic', 'TestGenericCH_Cockroach', ['provision-cockroach'])
+e2e_test('cockroach', 'TestCockroachClickhouseSuite', ['provision-cockroach'])
+
 # Switchboard tests
 
 e2e_test('switchboard-postgres', 'TestSwitchboardPostgres', ['provision-postgres'])
@@ -413,5 +417,7 @@ connector_test('mysql', ['provision-mysql-pos'], vars_overrides=mysql_pos_vars, 
 connector_test('mysql', ['provision-mariadb'], vars_overrides=mariadb_vars, name='mariadb', test_run="'TestIntegration.*/mariadb$'")
 
 connector_test('mongo', ['provision-mongodb'])
+
+connector_test('cockroach', ['provision-cockroach'])
 
 connector_test('clickhouse', ['provision-clickhouse'])

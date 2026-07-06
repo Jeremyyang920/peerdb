@@ -93,6 +93,12 @@ func CreatePeerNoValidate(
 			return wrongConfigResponse, nil
 		}
 		innerConfig = mongoConfigObject.MongoConfig
+	case protos.DBType_COCKROACH:
+		crConfigObject, ok := config.(*protos.Peer_CockroachConfig)
+		if !ok {
+			return wrongConfigResponse, nil
+		}
+		innerConfig = crConfigObject.CockroachConfig
 	default:
 		return wrongConfigResponse, nil
 	}

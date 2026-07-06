@@ -117,6 +117,22 @@ func MySQLSSHUpstreamHost() string {
 	return GetEnvString("CI_SSH_MYSQL_HOST", "")
 }
 
+// GetCockroachConfigFromEnv builds a CockroachConfig for e2e tests from the
+// CI_COCKROACH_* env vars, defaulting to the insecure single-node container used
+// by Tilt/CI (localhost:26257, user root, database defaultdb, TLS off). The node
+// is insecure, so DisableTls is always set.
+func GetCockroachConfigFromEnv() *protos.CockroachConfig {
+	disableTLS := true
+	return &protos.CockroachConfig{
+		Host:       GetEnvString("CI_COCKROACH_HOST", "localhost"),
+		Port:       uint32(getEnvUint[uint16]("CI_COCKROACH_PORT", 26257)),
+		User:       GetEnvString("CI_COCKROACH_USER", "root"),
+		Password:   GetEnvString("CI_COCKROACH_PASSWORD", ""),
+		Database:   GetEnvString("CI_COCKROACH_DATABASE", "defaultdb"),
+		DisableTls: &disableTLS,
+	}
+}
+
 func MySQLTestHostWithFallback(fallback string) string {
 	return GetEnvString("CI_MYSQL_HOST", fallback)
 }

@@ -215,6 +215,7 @@ func (s Generic) Test_Initial_Custom_Partition() {
 
 func (s Generic) Test_Simple_Schema_Changes() {
 	t := s.T()
+	skipCockroachNoSchemaDelta(s)
 
 	destinationSchemaConnector, ok := s.DestinationConnector().(connectors.GetTableSchemaConnector)
 	if !ok {
@@ -508,6 +509,7 @@ func (s Generic) Test_Partitioned_Table_With_Different_Column_Ordering() {
 
 func (s Generic) Test_Schema_Changes_Cutoff_Bug() {
 	t := s.T()
+	skipCockroachNoSchemaDelta(s)
 
 	destinationSchemaConnector, ok := s.DestinationConnector().(connectors.GetTableSchemaConnector)
 	if !ok {
@@ -611,6 +613,7 @@ func (s Generic) Test_Schema_Changes_Cutoff_Bug() {
 //  7. Error: lost_column doesn't exist on destination but we try to insert data for it
 func (s Generic) Test_Schema_Change_Lost_Column_Bug() {
 	t := s.T()
+	skipCockroachNoSchemaDelta(s)
 
 	srcTable := "test_lost_column_bug"
 	dstTable := "test_lost_column_bug_dst"
@@ -719,6 +722,7 @@ func (s Generic) Test_Schema_Change_Lost_Column_Bug() {
 
 func (s Generic) Test_Schema_Change_Drop_Consecutive_Columns() {
 	t := s.T()
+	skipCockroachNoSchemaDelta(s)
 
 	_, isPostgres := s.Source().(*PostgresSource)
 	mySource, isMySQL := s.Source().(*MySqlSource)
