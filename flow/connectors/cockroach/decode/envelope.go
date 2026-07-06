@@ -86,6 +86,12 @@ type rawEnvelope struct {
 	Op       *string         `json:"op"`
 	Source   json.RawMessage `json:"source"`
 	TsNs     *json.Number    `json:"ts_ns"`
+	// Payload/Schema are the Debezium-style wrapper the enriched envelope adds
+	// when the changefeed runs WITH enriched_properties='schema': the real
+	// op/before/after/source/ts_ns live nested under "payload" alongside a
+	// "schema" block. Both are present together only in that wrapper.
+	Payload json.RawMessage `json:"payload"`
+	Schema  json.RawMessage `json:"schema"`
 }
 
 type enrichedSource struct {
@@ -106,7 +112,8 @@ func ParseEnvelope(value []byte) (Event, error) {
 		return Event{}, fmt.Errorf("failed to unmarshal changefeed envelope: %w", err)
 	}
 
-	// Resolved-timestamp checkpoint: {"resolved": "<hlc>"}.
+	// Resolved-timestamp checkpoint: {"resolved": "<hlc>"}. Resolved messages are
+	// never Debezium-wrapped, so this stays flat even with enriched schema.
 	if raw.Resolved != nil {
 		hlc, err := ParseHLC(*raw.Resolved)
 		if err != nil {
@@ -115,10 +122,82 @@ func ParseEnvelope(value []byte) (Event, error) {
 		return Event{Resolved: true, ResolvedHLC: hlc}, nil
 	}
 
+	// Debezium schema-wrapped enriched envelope: unwrap "payload" and parse the
+	// nested enriched message. Gated on the "schema" sibling so a wrapped-row
+	// column named "payload" can't be mistaken for the wrapper.
+	if len(raw.Payload) > 0 && len(raw.Schema) > 0 {
+		var inner rawEnvelope
+		if err := json.Unmarshal(raw.Payload, &inner); err != nil {
+			return Event{}, fmt.Errorf("failed to unmarshal enriched payload: %w", err)
+		}
+		if inner.Op == nil {
+			return Event{}, fmt.Errorf("enriched payload missing op")
+		}
+		return parseEnriched(inner)
+	}
+
 	if raw.Op != nil {
 		return parseEnriched(raw)
 	}
 	return parseWrapped(raw)
+}
+
+// ParseKey decodes a sinkless changefeed's key column into a column-name ->
+// raw-JSON-value map. It handles both key shapes CRDB emits:
+//   - wrapped envelope: a JSON array of PK values ordered by pkColumns, e.g. [1]
+//   - enriched envelope: a JSON object keyed by column name, e.g. {"id":2},
+//     optionally Debezium-wrapped as {"schema":{...},"payload":{"id":2}}
+//
+// A null/empty key (as on resolved rows) yields a nil map. pkColumns is only
+// consulted for the array form; for the array form its length must match.
+func ParseKey(pkColumns []string, key []byte) (map[string]json.RawMessage, error) {
+	trimmed := bytesTrimSpace(key)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return nil, nil
+	}
+
+	switch trimmed[0] {
+	case '[':
+		var vals []json.RawMessage
+		if err := json.Unmarshal(trimmed, &vals); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal array key: %w", err)
+		}
+		if len(vals) != len(pkColumns) {
+			return nil, fmt.Errorf("array key has %d values but %d PK columns", len(vals), len(pkColumns))
+		}
+		out := make(map[string]json.RawMessage, len(vals))
+		for i, col := range pkColumns {
+			out[col] = vals[i]
+		}
+		return out, nil
+	case '{':
+		var obj struct {
+			Payload json.RawMessage `json:"payload"`
+			Schema  json.RawMessage `json:"schema"`
+		}
+		// Peek for a Debezium wrapper (payload+schema) without losing the flat form.
+		if err := json.Unmarshal(trimmed, &obj); err == nil && len(obj.Payload) > 0 && len(obj.Schema) > 0 {
+			trimmed = obj.Payload
+		}
+		var out map[string]json.RawMessage
+		if err := json.Unmarshal(trimmed, &out); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal object key: %w", err)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("unexpected key JSON: %s", string(trimmed))
+	}
+}
+
+func bytesTrimSpace(b []byte) []byte {
+	start, end := 0, len(b)
+	for start < end && (b[start] == ' ' || b[start] == '\t' || b[start] == '\n' || b[start] == '\r') {
+		start++
+	}
+	for end > start && (b[end-1] == ' ' || b[end-1] == '\t' || b[end-1] == '\n' || b[end-1] == '\r') {
+		end--
+	}
+	return b[start:end]
 }
 
 func parseEnriched(raw rawEnvelope) (Event, error) {

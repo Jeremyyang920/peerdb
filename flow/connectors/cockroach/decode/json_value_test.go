@@ -79,6 +79,14 @@ func TestJSONToQValueDecimal(t *testing.T) {
 	if got := qv2.(types.QValueNumeric).Val.String(); got != "123456789012345678901234567890.123456789" {
 		t.Fatalf("hi-precision decimal = %s", got)
 	}
+
+	// Live v25.4.12 ground truth: DECIMAL columns arrive as unquoted JSON
+	// numbers (10.50, 99.99), not strings.
+	for in, want := range map[string]string{`10.50`: "10.5", `99.99`: "99.99"} {
+		if got := mustDecode(t, types.QValueKindNumeric, -1, in).(types.QValueNumeric).Val.String(); got != want {
+			t.Fatalf("live decimal %s = %s, want %s", in, got, want)
+		}
+	}
 }
 
 func TestJSONToQValueUUID(t *testing.T) {
