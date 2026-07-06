@@ -21,6 +21,7 @@ import (
 	"github.com/PeerDB-io/peerdb/flow/otel_metrics"
 	"github.com/PeerDB-io/peerdb/flow/pkg/common"
 	"github.com/PeerDB-io/peerdb/flow/shared"
+	"github.com/PeerDB-io/peerdb/flow/shared/exceptions"
 )
 
 const (
@@ -288,20 +289,37 @@ type cdcReplState struct {
 	cancel   context.CancelFunc
 	rowCh    chan changefeedRow
 	errCh    chan error
-	tableSig string // sorted quoted-table list the changefeed was created for
-	cursor   string // resume cursor for reconnect; advances to the latest resolved HLC
+	done     chan struct{} // closed by the pump after it exits and closes conn
+	tableSig string        // sorted quoted-table list the changefeed was created for
+	cursor   string        // resume cursor for reconnect; advances to the latest resolved HLC
+}
+
+// currentCDC returns the persistent changefeed stream under replLock. The
+// pointer is written by startChangefeed/closeCDC (both under replLock) and read
+// by PullRecords; reading it through this accessor keeps that access race-free
+// against a concurrent Close().
+func (c *CockroachConnector) currentCDC() *cdcReplState {
+	c.replLock.Lock()
+	defer c.replLock.Unlock()
+	return c.cdc
 }
 
 // closeCDC tears down the persistent changefeed stream if one is running. Safe
-// to call repeatedly and concurrently; invoked by Close() at connector shutdown.
+// to call repeatedly and concurrently; invoked by Close() at connector shutdown
+// and by reconnect. It cancels the pump's context and waits for the pump to exit
+// (the pump owns and closes the changefeed connection), so no goroutine touches
+// that connection concurrently — pgx connections are not concurrency-safe — and
+// a reconnect never overlaps the previous pump.
 func (c *CockroachConnector) closeCDC() {
 	c.replLock.Lock()
-	defer c.replLock.Unlock()
-	if c.cdc != nil {
-		c.cdc.cancel()
-		_ = c.cdc.conn.Close(context.Background())
-		c.cdc = nil
+	s := c.cdc
+	c.cdc = nil
+	c.replLock.Unlock()
+	if s == nil {
+		return
 	}
+	s.cancel()
+	<-s.done
 }
 
 // startChangefeed opens a dedicated connection, issues the sinkless changefeed
@@ -327,10 +345,16 @@ func (c *CockroachConnector) startChangefeed(ctx context.Context, quotedTables [
 		cancel:   cancel,
 		rowCh:    make(chan changefeedRow, rowChannelBuffer),
 		errCh:    make(chan error, 1),
+		done:     make(chan struct{}),
 		tableSig: tableSig,
 		cursor:   cursor,
 	}
 	go func() {
+		// The pump exclusively owns the changefeed connection and closes it on exit
+		// (closeCDC waits on done rather than closing the conn itself), so the conn
+		// is never touched by two goroutines at once. done must close last.
+		defer close(s.done)
+		defer func() { _ = conn.Close(context.Background()) }()
 		defer close(s.errCh)
 		rows, err := conn.Query(streamCtx, sqlStmt)
 		if err != nil {
@@ -402,7 +426,7 @@ func (c *CockroachConnector) PullRecords(
 	// mirror's table set changed (e.g. add/remove tables). It resumes from the
 	// persisted checkpoint (t0 from SetupReplication, or the last synced resolved
 	// HLC); once running it continues across batches from its own position.
-	if c.cdc == nil || c.cdc.tableSig != tableSig {
+	if cur := c.currentCDC(); cur == nil || cur.tableSig != tableSig {
 		c.closeCDC()
 		startCursor := req.LastOffset.Text
 		if startCursor == "" {
@@ -460,39 +484,78 @@ func (c *CockroachConnector) PullRecords(
 		idleTimer.Reset(req.IdleTimeout)
 	}
 
+	maxAttempts := c.reconnectMaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = cdcReconnectMaxAttempts
+	}
+	baseBackoff := c.reconnectBaseBackoff
+	if baseBackoff <= 0 {
+		baseBackoff = cdcReconnectBaseBackoff
+	}
+	maxBackoff := c.reconnectMaxBackoff
+	if maxBackoff <= 0 {
+		maxBackoff = cdcReconnectMaxBackoff
+	}
+
 	reconnectAttempts := 0
+	// reconnect re-establishes the changefeed from the latest resolved HLC, backing
+	// off between tries. A reconnect that cannot even connect counts as a failed
+	// attempt and is retried (a brief source blip should not fail the whole batch);
+	// after maxAttempts the error is surfaced so the SyncFlow retries the batch from
+	// the persisted cursor rather than the pump looping forever. reconnectAttempts is
+	// reset to 0 in the caller whenever a resolved message confirms progress.
 	reconnect := func(cause error) error {
-		reconnectAttempts++
-		resumeCursor := c.cdc.cursor
-		if latestResolved != "" {
-			resumeCursor = latestResolved
+		for {
+			reconnectAttempts++
+			if reconnectAttempts > maxAttempts {
+				c.closeCDC() // force a fresh rebuild on the next PullRecords call
+				return fmt.Errorf("changefeed connection lost, exhausted %d reconnect attempts: %w", maxAttempts, cause)
+			}
+			resumeCursor := ""
+			if cur := c.currentCDC(); cur != nil {
+				resumeCursor = cur.cursor
+			}
+			if latestResolved != "" {
+				resumeCursor = latestResolved
+			}
+			backoff := min(baseBackoff*time.Duration(1<<(reconnectAttempts-1)), maxBackoff)
+			c.logger.Warn("[cockroach] changefeed connection error, reconnecting",
+				slog.Any("error", cause),
+				slog.Int("attempt", reconnectAttempts),
+				slog.String("resumeCursor", resumeCursor),
+				slog.Duration("backoff", backoff),
+				slog.String("note", "rows since last resolved will be replayed (at-least-once)"))
+			c.closeCDC()
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			if err := c.startChangefeed(ctx, quotedTables, tableSig, resumeCursor); err != nil {
+				// Could not re-open the changefeed connection; treat as this attempt's
+				// failure and retry (up to maxAttempts) rather than bailing immediately.
+				cause = err
+				continue
+			}
+			resetIdle()
+			return nil
 		}
-		if reconnectAttempts > cdcReconnectMaxAttempts {
-			c.closeCDC() // force a fresh rebuild on the next PullRecords call
-			return fmt.Errorf("changefeed connection lost, exhausted %d reconnect attempts: %w", cdcReconnectMaxAttempts, cause)
-		}
-		backoff := min(cdcReconnectBaseBackoff*time.Duration(1<<(reconnectAttempts-1)), cdcReconnectMaxBackoff)
-		c.logger.Warn("[cockroach] changefeed connection error, reconnecting",
-			slog.Any("error", cause),
-			slog.Int("attempt", reconnectAttempts),
-			slog.String("resumeCursor", resumeCursor),
-			slog.Duration("backoff", backoff),
-			slog.String("note", "rows since last resolved will be replayed (at-least-once)"))
-		c.closeCDC()
-		select {
-		case <-time.After(backoff):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-		if err := c.startChangefeed(ctx, quotedTables, tableSig, resumeCursor); err != nil {
-			return err
-		}
-		resetIdle()
-		return nil
 	}
 
 	for recordCount < req.MaxBatchSize {
-		s := c.cdc
+		if c.closed.Load() {
+			// Connector is shutting down (Close): return cleanly instead of
+			// resurrecting the changefeed.
+			return nil
+		}
+		s := c.currentCDC()
+		if s == nil {
+			// The stream was removed from under us without a shutdown signal.
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return fmt.Errorf("changefeed stream was torn down mid-batch")
+		}
 		select {
 		case <-ctx.Done():
 			// Batch context canceled (activity shutdown/failure). Leave the
@@ -520,6 +583,22 @@ func (c *CockroachConnector) PullRecords(
 			}
 			if ctx.Err() != nil {
 				return ctx.Err()
+			}
+			if c.closed.Load() {
+				// Close tore down the pump; the closed errCh is expected, not a loss.
+				return nil
+			}
+			// Some changefeed failures cannot be resumed from the persisted cursor
+			// (cursor past GC threshold, watched table truncated/dropped). Retrying
+			// them against the same cursor is pointless, so surface them terminally,
+			// wrapped so the alerting classifier flags a needs-resync condition
+			// (like MySQL's binlog-invalid). The SyncFlow retry then keeps failing
+			// fast and alerting until the user resyncs, rather than looping in-batch.
+			if code, irrecoverable := classifyChangefeedError(err); irrecoverable {
+				c.closeCDC()
+				c.logger.Error("[cockroach] changefeed hit an irrecoverable error; a resync is required",
+					slog.String("code", code), slog.Any("error", err))
+				return exceptions.NewCockroachChangefeedError(err, code)
 			}
 			if rerr := reconnect(err); rerr != nil {
 				return rerr

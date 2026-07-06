@@ -87,6 +87,7 @@ const (
 	ErrorSourcePostgres        ErrorSource = "postgres"
 	ErrorSourceMySQL           ErrorSource = "mysql"
 	ErrorSourceMongoDB         ErrorSource = "mongodb"
+	ErrorSourceCockroachDB     ErrorSource = "cockroachdb"
 	ErrorSourceBigQuery        ErrorSource = "bigquery"
 	ErrorSourcePostgresCatalog ErrorSource = "postgres_catalog"
 	ErrorSourceSSH             ErrorSource = "ssh_tunnel"
@@ -142,6 +143,12 @@ var (
 	}
 	ErrorNotifyBinlogInvalid = ErrorClass{
 		Class: "NOTIFY_BINLOG_INVALID", action: NotifyUser,
+	}
+	// CockroachDB sinkless changefeed cannot resume from the persisted cursor
+	// (cursor past GC threshold, or a watched table was truncated/dropped): the
+	// mirror needs a resync. Equivalent to NOTIFY_BINLOG_INVALID for MySQL.
+	ErrorNotifyCockroachChangefeedInvalid = ErrorClass{
+		Class: "NOTIFY_COCKROACH_CHANGEFEED_INVALID", action: NotifyUser,
 	}
 	ErrorNotifyBinlogEventExceededMaxAllowedPacket = ErrorClass{
 		Class: "NOTIFY_BINLOG_EVENT_EXCEEDED_MAX_ALLOWED_PACKET", action: NotifyUser,
@@ -521,6 +528,17 @@ func GetErrorClass(ctx context.Context, err error) (ErrorClass, ErrorInfo) {
 		return ErrorNotifyConnectivity, ErrorInfo{
 			Source: ErrorSourcePostgres,
 			Code:   "UNKNOWN",
+		}
+	}
+
+	// CockroachDB irrecoverable changefeed errors surface from CRDB as an
+	// uncategorized (XXUUU) PgError, so this must precede the generic pgErr
+	// switch below (which would otherwise bucket them into ErrorOther). The
+	// connector has already classified the failure mode into Code.
+	if crdbChangefeedErr, ok := errors.AsType[*exceptions.CockroachChangefeedError](err); ok {
+		return ErrorNotifyCockroachChangefeedInvalid, ErrorInfo{
+			Source: ErrorSourceCockroachDB,
+			Code:   crdbChangefeedErr.Code,
 		}
 	}
 

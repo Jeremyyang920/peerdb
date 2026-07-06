@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -29,9 +31,18 @@ type CockroachConnector struct {
 	metadataSchema string
 	version        string
 	replLock       sync.Mutex
+	// Reconnect ladder bounds for the in-loop changefeed reconnect. Zero means
+	// use the cdcReconnect* package defaults; tests override them to keep the
+	// backoff-exhaustion path fast.
+	reconnectMaxAttempts int
+	reconnectBaseBackoff time.Duration
+	reconnectMaxBackoff  time.Duration
 	// cdc holds the persistent sinkless changefeed stream shared across
 	// PullRecords calls (see cdc.go). Guarded by replLock; torn down in Close.
 	cdc *cdcReplState
+	// closed is set by Close so a PullRecords blocked mid-batch returns instead
+	// of resurrecting the changefeed via the reconnect path after shutdown.
+	closed atomic.Bool
 }
 
 func NewCockroachConnector(
@@ -96,6 +107,10 @@ func NewCockroachConnector(
 
 func (c *CockroachConnector) Close() error {
 	var errs []error
+	// Signal shutdown before tearing down so a PullRecords blocked on the pump
+	// returns cleanly rather than treating the teardown as a connection loss and
+	// reconnecting.
+	c.closed.Store(true)
 	// Tear down the persistent sinkless changefeed (cancels its context and
 	// closes its dedicated connection).
 	c.closeCDC()

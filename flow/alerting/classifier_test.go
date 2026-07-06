@@ -322,6 +322,32 @@ func TestPostgresQueryCancelledErrorShouldBeNotifyConnectivity(t *testing.T) {
 	}, errInfo, "Unexpected error info")
 }
 
+func TestCockroachChangefeedErrorShouldBeNotifyChangefeedInvalid(t *testing.T) {
+	t.Parallel()
+
+	// CRDB surfaces these as an uncategorized (XXUUU) PgError; the connector wraps
+	// them in CockroachChangefeedError. Wrapping a PgError here proves the CRDB
+	// check precedes (and pre-empts) the generic pgErr switch that would otherwise
+	// bucket XXUUU into ErrorOther.
+	for _, code := range []string{
+		exceptions.CockroachChangefeedGCThreshold,
+		exceptions.CockroachChangefeedTableTruncated,
+		exceptions.CockroachChangefeedTableDropped,
+	} {
+		pgErr := &pgconn.PgError{Code: "XXUUU", Severity: "ERROR", Message: `"orders" was dropped`}
+		wrapped := exceptions.NewCockroachChangefeedError(
+			fmt.Errorf("failed to start changefeed: %w", pgErr), code)
+
+		errorClass, errInfo := GetErrorClass(t.Context(), fmt.Errorf("PullRecords: %w", wrapped))
+		assert.Equal(t, ErrorNotifyCockroachChangefeedInvalid, errorClass, "Unexpected error class for %s", code)
+		assert.Equal(t, ErrorInfo{
+			Source: ErrorSourceCockroachDB,
+			Code:   code,
+		}, errInfo, "Unexpected error info for %s", code)
+		assert.Equal(t, NotifyUser, errorClass.ErrorAction(), "CRDB changefeed-invalid should notify the user")
+	}
+}
+
 func TestClickHouseChaoticNormalizeErrorShouldBeNotifyMVNow(t *testing.T) {
 	err := &clickhouse.Exception{
 		Code: int32(chproto.ErrNoCommonType),
