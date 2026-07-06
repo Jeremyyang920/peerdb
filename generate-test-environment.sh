@@ -29,10 +29,11 @@ if [ -z "$CLICKHOUSE_VERSION" ]; then
     CLICKHOUSE_VERSION="latest"
 fi;
 
-# CockroachDB is not part of the flow.yml matrix yet (no CI e2e suite), so pin a
-# recent stable v25.x here rather than deriving it from the matrix.
+# CockroachDB is not part of the flow.yml matrix yet (no CI e2e suite), so pin
+# the latest Regular (production/long-support) release line here rather than
+# deriving it from the matrix.
 if [ -z "$COCKROACH_VERSION" ]; then
-    COCKROACH_VERSION="v25.4.12"
+    COCKROACH_VERSION="v26.1.6"
 fi;
 
 if [ -z "$POSTGRES_VERSION" ] || [ -z "$MYSQL_VERSION" ] || [ -z "$MONGODB_VERSION" ] || [ -z "$CLICKHOUSE_VERSION" ]; then
