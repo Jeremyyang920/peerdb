@@ -15,57 +15,7 @@ import (
 // WP-C snapshot/QRep, WP-D CDC). They exist so the compile-time interface
 // assertions in flow/connectors/core.go hold during Phase 0.
 
-// --- GetTableSchemaConnector (WP-A) ---
-
-func (c *CockroachConnector) GetTableSchema(
-	ctx context.Context,
-	env map[string]string,
-	version uint32,
-	system protos.TypeSystem,
-	tableMappings []*protos.TableMapping,
-) (map[string]*protos.TableSchema, error) {
-	return nil, errors.ErrUnsupported
-}
-
-// --- GetSchemaConnector (WP-A) ---
-
-func (c *CockroachConnector) GetAllTables(ctx context.Context) (*protos.AllTablesResponse, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (c *CockroachConnector) GetColumns(
-	ctx context.Context, version uint32, schema string, table string,
-) (*protos.TableColumnsResponse, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (c *CockroachConnector) GetSchemas(ctx context.Context) (*protos.PeerSchemasResponse, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (c *CockroachConnector) GetTablesInSchema(
-	ctx context.Context, schema string, cdcEnabled bool,
-) (*protos.SchemaTablesResponse, error) {
-	return nil, errors.ErrUnsupported
-}
-
-// --- ValidationConnector / MirrorSourceValidationConnector (WP-A) ---
-
-func (c *CockroachConnector) ValidateCheck(ctx context.Context) error {
-	return errors.ErrUnsupported
-}
-
-func (c *CockroachConnector) ValidateMirrorSource(ctx context.Context, cfg *protos.FlowConnectionConfigsCore) error {
-	return errors.ErrUnsupported
-}
-
 // --- CDCPullConnectorCore / CDCPullConnector (WP-D) ---
-
-func (c *CockroachConnector) EnsurePullability(
-	ctx context.Context, req *protos.EnsurePullabilityBatchInput,
-) (*protos.EnsurePullabilityBatchOutput, error) {
-	return nil, errors.ErrUnsupported
-}
 
 func (c *CockroachConnector) ExportTxSnapshot(
 	ctx context.Context, flowName string, env map[string]string,
