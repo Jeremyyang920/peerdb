@@ -29,6 +29,9 @@ type CockroachConnector struct {
 	metadataSchema string
 	version        string
 	replLock       sync.Mutex
+	// cdc holds the persistent sinkless changefeed stream shared across
+	// PullRecords calls (see cdc.go). Guarded by replLock; torn down in Close.
+	cdc *cdcReplState
 }
 
 func NewCockroachConnector(
@@ -93,6 +96,9 @@ func NewCockroachConnector(
 
 func (c *CockroachConnector) Close() error {
 	var errs []error
+	// Tear down the persistent sinkless changefeed (cancels its context and
+	// closes its dedicated connection).
+	c.closeCDC()
 	if c.replConn != nil {
 		if err := c.replConn.Close(context.Background()); err != nil {
 			c.logger.Error("failed to close replication connection", slog.Any("error", err))

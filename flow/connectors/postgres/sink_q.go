@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.temporal.io/sdk/temporal"
 
-	"github.com/PeerDB-io/peerdb/flow/connectors/utils"
 	"github.com/PeerDB-io/peerdb/flow/generated/protos"
 	"github.com/PeerDB-io/peerdb/flow/model"
 	"github.com/PeerDB-io/peerdb/flow/shared"
@@ -31,8 +30,8 @@ func (stream RecordStreamSink) ExecuteQueryWithTx(
 ) (int64, int64, error) {
 	defer shared.RollbackTx(tx, qe.logger)
 
-	if qe.snapshot != "" {
-		if _, err := tx.Exec(ctx, "SET TRANSACTION SNAPSHOT "+utils.QuoteLiteral(qe.snapshot)); err != nil {
+	if snapshotStmt := qe.snapshotStatement(qe.snapshot); snapshotStmt != "" {
+		if _, err := tx.Exec(ctx, snapshotStmt); err != nil {
 			qe.logger.Error("[pg_query_executor] failed to set snapshot",
 				slog.Any("error", err), slog.String("query", query))
 			if shared.IsSQLStateError(err, pgerrcode.UndefinedObject, pgerrcode.InvalidParameterValue) {

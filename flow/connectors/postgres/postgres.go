@@ -53,6 +53,29 @@ type PostgresConnector struct {
 	pgVersion              shared.PGVersion
 
 	cdcStoreEnabled bool
+
+	// SnapshotStatement, when non-empty, is executed as the first statement of
+	// every QRep snapshot read transaction (immediately after BEGIN), in place of
+	// the Postgres `SET TRANSACTION SNAPSHOT`. It exists for pgwire-compatible
+	// sources that pin a consistent read via a different mechanism — notably
+	// CockroachDB, which uses `SET TRANSACTION AS OF SYSTEM TIME '<hlc>'` and does
+	// not support Postgres exported snapshots. Empty for real Postgres connectors,
+	// so their behavior is unchanged.
+	SnapshotStatement string
+}
+
+// snapshotStatement returns the statement used to pin a QRep read transaction to
+// a consistent point, executed as the first statement after BEGIN, or "" when no
+// pinning is needed. A non-empty SnapshotStatement (set by pgwire-compatible
+// sources such as CockroachDB) takes precedence over a Postgres exported snapshot.
+func (c *PostgresConnector) snapshotStatement(snapshotName string) string {
+	if c.SnapshotStatement != "" {
+		return c.SnapshotStatement
+	}
+	if snapshotName != "" {
+		return "SET TRANSACTION SNAPSHOT " + utils.QuoteLiteral(snapshotName)
+	}
+	return ""
 }
 
 func NewPostgresConnectorWithCDCDestination(
