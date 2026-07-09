@@ -65,8 +65,9 @@ func ParseConfig(connectionString string, config *protos.CockroachConfig) (*pgx.
 	connConfig.Config.MaxProtocolVersion = "3.0"
 
 	if mustUseTLS(config) || config.RootCa != nil {
+		// CockroachConfig has no client-certificate (mTLS) fields yet; pass nil.
 		tlsConfig, err := common.CreateTlsConfig(
-			tls.VersionTLS12, config.RootCa, connConfig.Host, config.TlsHost, config.SkipCertVerification)
+			tls.VersionTLS12, config.RootCa, connConfig.Host, config.TlsHost, config.SkipCertVerification, nil)
 		if err != nil {
 			return nil, err
 		}
