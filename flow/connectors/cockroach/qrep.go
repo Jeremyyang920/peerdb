@@ -221,6 +221,10 @@ func (c *CockroachConnector) GetQRepPartitions(
 		return nil, err
 	}
 
+	// Keep the snapshot's history protection alive while partitions are computed
+	// and pulled, so a long initial load outlives the source gc.ttlseconds.
+	c.maybeExtendProtection(ctx, config.FlowJobName)
+
 	t0, hasT0 := c.resolveSnapshotTime(ctx, config.FlowJobName)
 
 	parsedWatermarkTable, err := common.ParseTableIdentifier(config.WatermarkTable)
@@ -418,6 +422,10 @@ func (c *CockroachConnector) PullQRepRecords(
 	partition *protos.QRepPartition,
 	stream *model.QRecordStream,
 ) (int64, int64, error) {
+	// Each partition pull may run long; keep the history protection alive so the
+	// AOST reads against t0 do not lose to GC mid-snapshot (throttled internally).
+	c.maybeExtendProtection(ctx, config.FlowJobName)
+
 	t0, hasT0 := c.resolveSnapshotTime(ctx, config.FlowJobName)
 
 	pgConn, err := c.newDelegatePostgresConnector(ctx, config.Env, dstType, t0, hasT0)

@@ -1231,6 +1231,9 @@ fn parse_db_options(db_type: DbType, with_options: &[SqlOption]) -> anyhow::Resu
                     .and_then(|s| s.parse::<u32>().ok())
                     .unwrap_or_default(),
                 changefeed_extra_options,
+                history_protection_window_seconds: opts
+                    .get("history_protection_window_seconds")
+                    .and_then(|s| s.parse::<u32>().ok()),
             })
         }
         DbType::DbtypeUnknown => return Ok(None),

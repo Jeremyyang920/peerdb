@@ -160,6 +160,14 @@ message CockroachConfig {
   uint32 resolved_interval_seconds = 13;
   // Escape hatch for additional `CREATE CHANGEFEED ... WITH` options.
   map<string, string> changefeed_extra_options = 14;
+  // How long the initial-snapshot MVCC history protection (a CockroachDB
+  // protected-timestamp / HISTORY RETENTION job pinned at the CDC start
+  // timestamp) is held before it auto-expires, unless PeerDB extends it while
+  // the snapshot is still running. This lets an initial snapshot outlive the
+  // source's gc.ttlseconds without the AS OF SYSTEM TIME reads (or the
+  // changefeed cursor) losing to GC. Absent → defaults to 86400 (24h);
+  // an explicit 0 disables protection entirely.
+  optional uint32 history_protection_window_seconds = 15;
 }
 
 message EventHubConfig {

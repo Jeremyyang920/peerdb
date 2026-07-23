@@ -95,6 +95,19 @@ export const cockroachdbSetting: PeerSetting[] = [
     optional: true,
     tips: 'Cadence of changefeed `resolved` timestamps, which drive replication checkpoints. Defaults to 10 seconds.',
   },
+  {
+    label: 'History Protection Window (Seconds)',
+    field: 'historyProtectionWindowSeconds',
+    stateHandler: (value, setter) =>
+      setter((curr) => ({
+        ...curr,
+        historyProtectionWindowSeconds: parseInt(value as string, 10),
+      })),
+    type: 'number',
+    default: 86400,
+    optional: true,
+    tips: 'How long PeerDB pins MVCC history at the initial-snapshot start timestamp so a long snapshot can outlive the source `gc.ttlseconds` (PeerDB extends it automatically while the snapshot runs). Defaults to 86400 (24h); set to 0 to disable.',
+  },
 ];
 
 export const blankCockroachDBSetting: CockroachConfig = {

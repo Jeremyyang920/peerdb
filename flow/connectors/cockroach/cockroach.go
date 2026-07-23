@@ -43,6 +43,14 @@ type CockroachConnector struct {
 	// closed is set by Close so a PullRecords blocked mid-batch returns instead
 	// of resurrecting the changefeed via the reconnect path after shutdown.
 	closed atomic.Bool
+	// MVCC history protection (see protection.go). protectionMu guards
+	// lastProtectionExtend, which throttles the QRep extend path;
+	// protectionReleaseOnce fires the CDC-side cancel exactly once per connector
+	// lifetime; protectionUnsupportedWarned dedups the loud degradation warning.
+	protectionMu                sync.Mutex
+	lastProtectionExtend        time.Time
+	protectionReleaseOnce       sync.Once
+	protectionUnsupportedWarned atomic.Bool
 }
 
 func NewCockroachConnector(

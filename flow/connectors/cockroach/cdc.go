@@ -2,6 +2,7 @@ package conncockroach
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -78,7 +79,8 @@ func (c *CockroachConnector) SetupReplication(
 	}
 	// Validate it parses as an HLC so a malformed t0 fails here rather than later
 	// when it is used as a changefeed cursor.
-	if _, err := decode.ParseHLC(t0); err != nil {
+	t0HLC, err := decode.ParseHLC(t0)
+	if err != nil {
 		return model.SetupReplicationResult{}, fmt.Errorf("[cockroach] SetupReplication captured invalid HLC %q: %w", t0, err)
 	}
 
@@ -86,6 +88,11 @@ func (c *CockroachConnector) SetupReplication(
 		return model.SetupReplicationResult{}, fmt.Errorf("[cockroach] SetupReplication failed to persist initial checkpoint: %w", err)
 	}
 	c.logger.Info("[cockroach] SetupReplication captured initial checkpoint", slog.String("t0", t0))
+
+	// Pin MVCC history at t0 so a snapshot that outlives the source gc.ttlseconds
+	// does not lose t0 to GC (which would break both the AOST reads and the
+	// changefeed cursor). Never fails the mirror if protection is unavailable.
+	c.protectFlowHistory(ctx, t0HLC, req.FlowJobName)
 
 	// Like MySQL, the checkpoint lives in the metadata store; no server-side
 	// object (slot/job) is created for a sinkless changefeed.
@@ -107,10 +114,25 @@ func (c *CockroachConnector) UpdateReplStateLastOffset(ctx context.Context, last
 	return c.SetLastOffset(ctx, flowName, lastOffset)
 }
 
-// PullFlowCleanup has nothing to drop: a sinkless changefeed is a client-side
-// streaming query with no server-side job, publication, or slot. The dedicated
-// connection is owned by and closed within each PullRecords call.
-func (c *CockroachConnector) PullFlowCleanup(context.Context, string) error {
+// PullFlowCleanup drops the only server-side object the connector may create:
+// the MVCC history protection job pinned at t0. The sinkless changefeed itself
+// is a client-side streaming query with no server-side job, publication, or
+// slot, and its dedicated connection is owned by and closed within each
+// PullRecords call. Removing the protection lets GC resume on the source.
+func (c *CockroachConnector) PullFlowCleanup(ctx context.Context, flowJobName string) error {
+	if _, enabled := c.historyProtectionWindow(); !enabled {
+		return nil
+	}
+	if err := cancelProtectionByFlow(ctx, c.conn, flowJobName); err != nil {
+		if errors.Is(err, errProtectionUnsupported) {
+			c.warnProtectionUnsupported("PullFlowCleanup", err)
+			return nil
+		}
+		// Cleanup is best-effort: a leftover protection job auto-expires after its
+		// window, so surface the failure as a warning rather than blocking the drop.
+		c.logger.Warn("[cockroach] failed to cancel MVCC history protection during cleanup",
+			slog.String("flowJobName", flowJobName), slog.Any("error", err))
+	}
 	return nil
 }
 
@@ -622,6 +644,11 @@ func (c *CockroachConnector) PullRecords(
 				reconnectAttempts = 0   // progress made; reset backoff ladder
 				otelManager.Metrics.LatestConsumedLogEventGauge.Record(ctx, event.ResolvedHLC.Time().Unix())
 				otelManager.Metrics.CommitLagGauge.Record(ctx, time.Since(event.ResolvedHLC.Time()).Microseconds())
+
+				// Once CDC has advanced strictly past the cursor this batch resumed
+				// from, the snapshot is complete and the feed no longer needs the
+				// history pinned at t0 — release the protection (once per connector).
+				c.maybeReleaseProtection(ctx, req.FlowJobName, startOffset, resolvedText)
 
 				// A resolved message is a consistency high-water: every row event with
 				// HLC <= it has already been emitted (and, since the pump preserves

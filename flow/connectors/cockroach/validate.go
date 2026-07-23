@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 
@@ -127,7 +128,38 @@ func (c *CockroachConnector) ValidateMirrorSource(ctx context.Context, cfg *prot
 		return err
 	}
 
+	// Best-effort: warn (never fail) if MVCC history protection looks unavailable,
+	// so a user learns before a long snapshot loses t0 to GC. Protection is a
+	// safety net, not a hard requirement — raising gc.ttlseconds is an alternative.
+	c.warnIfProtectionUnavailable(ctx)
+
 	return nil
+}
+
+// warnIfProtectionUnavailable probes, without failing validation, whether the
+// connecting user can create MVCC history protection. The builtins require the
+// REPLICATION global privilege (admins have it), so has_system_privilege is a
+// cheap proxy. Any uncertainty (missing function, probe error) is only logged.
+func (c *CockroachConnector) warnIfProtectionUnavailable(ctx context.Context) {
+	if _, enabled := c.historyProtectionWindow(); !enabled {
+		return
+	}
+	var isAdmin pgtype.Bool
+	if err := c.conn.QueryRow(ctx, "SELECT pg_has_role(current_user, 'admin', 'MEMBER')").Scan(&isAdmin); err == nil &&
+		isAdmin.Valid && isAdmin.Bool {
+		return
+	}
+	var hasRepl pgtype.Bool
+	if err := c.conn.QueryRow(ctx, "SELECT has_system_privilege('REPLICATION')").Scan(&hasRepl); err != nil {
+		c.logger.Warn("[cockroach] could not determine REPLICATION privilege; "+
+			"MVCC history protection for long snapshots may be unavailable", slog.Any("error", err))
+		return
+	}
+	if !hasRepl.Valid || !hasRepl.Bool {
+		c.logger.Warn("[cockroach] connecting user lacks the REPLICATION privilege; " +
+			"PeerDB cannot pin MVCC history, so an initial snapshot longer than the source gc.ttlseconds may fail. " +
+			"Grant it with GRANT SYSTEM REPLICATION TO <user>, or raise gc.ttlseconds on the mirrored tables.")
+	}
 }
 
 // checkSourceTablesExist selects from each table and collects the ones that do

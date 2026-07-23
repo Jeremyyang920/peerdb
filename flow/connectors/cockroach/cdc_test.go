@@ -156,13 +156,19 @@ func cockroachTestConfig(t *testing.T) *protos.CockroachConfig {
 		database = "defaultdb"
 	}
 	disableTLS := true
+	// Test hygiene: the CRDB container is shared with the e2e suite, so every
+	// protection job a SetupReplication-driven test creates must auto-expire fast
+	// rather than pin GC for the 24h production default. Tests that specifically
+	// exercise protection override this with their own window and cancel explicitly.
+	protectionWindow := uint32(30)
 	return &protos.CockroachConfig{
-		Host:                    host,
-		Port:                    port,
-		User:                    user,
-		Database:                database,
-		DisableTls:              &disableTLS,
-		ResolvedIntervalSeconds: 2, // fast resolved cadence for the test
+		Host:                           host,
+		Port:                           port,
+		User:                           user,
+		Database:                       database,
+		DisableTls:                     &disableTLS,
+		ResolvedIntervalSeconds:        2, // fast resolved cadence for the test
+		HistoryProtectionWindowSeconds: &protectionWindow,
 	}
 }
 
@@ -275,7 +281,7 @@ func TestIntegrationCockroachPullRecordsCDC(t *testing.T) {
 		TableNameMapping:       map[string]model.NameAndExclude{srcTable: model.NewNameAndExclude(dstTable, nil)},
 		TableNameSchemaMapping: map[string]*protos.TableSchema{dstTable: tableSchema},
 		LastOffset:             t0,
-		MaxBatchSize: 100,
+		MaxBatchSize:           100,
 		// A freshly created changefeed's first resolved message trails its initial
 		// catch-up + closed-timestamp latency (seconds), so the idle timeout is set
 		// generously; the resolved-based batch cut ends the batch as soon as the
