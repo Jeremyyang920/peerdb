@@ -154,5 +154,5 @@ Gate: unit tests green per WP; WP-B is the only cross-WP dependency (stub/mock u
 - Catalog-PG buffer throughput ceiling for high-write mirrors; mitigation: batch inserts, partitioned buffer table, later object-store segments.
 - PeerDB must expose a public HTTPS URL to the CRDB cluster (ingress/TLS certs per deployment) — a real ops burden for self-hosted users; N/A for sinkless.
 - Changefeed limits: ~80 feeds/cluster guidance → one multi-table feed per mirror, not per table.
-- Long consumer downtime beyond `gc_protect_expires_after`/GC TTL ⇒ changefeed unrecoverable ⇒ auto-resync path needed.
+- Long consumer downtime beyond `gc_protect_expires_after`/GC TTL ⇒ changefeed unrecoverable ⇒ auto-resync path needed. **Mitigated for the initial-snapshot window (implemented):** `crdb_internal.protect_mvcc_history` pins history at t₀ (auto-expiring, extended during QRep pulls, released on first resolved checkpoint), so snapshots longer than `gc.ttlseconds` no longer break AOST reads or the changefeed cursor. Steady-state CDC downtime remains GC-TTL-bounded (ratcheting protection = future work).
 - Licensing: customer clusters need an (Enterprise/Enterprise Free) license for sink-backed feeds; sinkless historically ran license-free pre-24.3 — post-24.3 everything requires a (possibly free) license.
