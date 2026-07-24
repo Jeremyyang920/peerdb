@@ -32,6 +32,15 @@ import (
 //   - CANCEL JOB <job_id> removes it (async: canceled → reverting → the PTS
 //     record disappears).
 //
+// Scope: the record's cluster target translates to a span config over the
+// ENTIRE keyspace (the tenant keyspace on Serverless), so system tables are
+// pinned too. That is required — AOST reads and the changefeed catch-up scan
+// resolve historical descriptors from system.descriptor at t₀ — but it means
+// MVCC garbage accrues cluster-wide (including churny system tables like
+// system.jobs) while the protection is live, same blast radius as a
+// full-cluster BACKUP's protected timestamp. The release-on-first-resolved
+// and auto-expiry logic below keeps that window tight.
+//
 // The job's description ("History Retention for peerdb <flow_job_name>") makes
 // the SOURCE cluster the durable registry of our job id — no PeerDB catalog
 // schema change is needed; we rediscover the job by description.
